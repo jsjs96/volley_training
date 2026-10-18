@@ -587,9 +587,17 @@ $("#bTools").onclick=()=>$("#sheet").classList.toggle("open");
 $("#bClose").onclick=()=>$("#sheet").classList.remove("open");
 
 /* ---------- 훈련 저장 · 불러오기 ---------- */
-const LK="vt_drills_v1",CFG={apiKey:"AIzaSyAd-SCWlKLVxuUF0QsxwAu00pHjn-SHa7M",authDomain:"volleyball-board-58328.firebaseapp.com",
-  databaseURL:"https://volleyball-board-58328-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"volleyball-board-58328",
-  storageBucket:"volleyball-board-58328.firebasestorage.app",messagingSenderId:"145253833466",appId:"1:145253833466:web:bf115968d0a49437c3c743"};
+const LK="vt_drills_v1",CFG={
+  apiKey:"AIzaSyDm8pC84o9u43h7JwoC1A2W65mKq6Ds604",
+  authDomain:"volley-training-81679.firebaseapp.com",
+  // Firebase 콘솔에서 Realtime Database를 만든 뒤 표시되는 URL을 여기에 입력하세요.
+  // 예: https://volley-training-81679-default-rtdb.<region>.firebasedatabase.app
+  databaseURL:"https://volley-training-81679-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId:"volley-training-81679",
+  storageBucket:"volley-training-81679.firebasestorage.app",
+  messagingSenderId:"325897615461",
+  appId:"1:325897615461:web:4b98bf7bff51e787496e8c"
+};
 let drills={},dref=null,dpage=0;const DPP=6;
 try{drills=JSON.parse(localStorage.getItem(LK))||{}}catch(e){}
 const lsSet=()=>{try{localStorage.setItem(LK,JSON.stringify(drills))}catch(e){alert("이 브라우저에서는 저장 공간을 쓸 수 없어요.")}};
@@ -646,7 +654,7 @@ function rList(){
   $("#dPager").replaceChildren(prev,h("span",`${dpage+1} / ${tot} 쪽 · 총 ${all.length}개`),next);
   fillPick()}
 $("#dSearch").oninput=()=>{dpage=0;rList()};
-const USE_AUTH=false,COACHES=["coach@club.app"];   // 로그인 잠금을 쓰려면 USE_AUTH 를 true 로 바꾸고 COACHES 에 코치 이메일을 적으세요
+const USE_AUTH=true,COACHES=["coach@club.app"];   // 실제 코치 로그인 이메일로 coach@club.app 을 교체하세요
 let auth=null;
 function setEditUI(){
   document.querySelectorAll("[data-e]").forEach(b=>b.disabled=!canEdit);
@@ -667,7 +675,16 @@ function startData(){
   pillUpd()}
 function connect(){
   if(typeof firebase=="undefined")return;
-  try{firebase.initializeApp(CFG);db=firebase.database()}catch(e){return}
+  if(!CFG.databaseURL){
+    const msg="Firebase 설정이 거의 완료됐어요. Realtime Database를 만든 뒤 CFG.databaseURL에 콘솔의 데이터베이스 URL을 입력해야 클라우드 저장과 실시간 공유가 작동합니다. 현재는 이 기기에만 저장됩니다.";
+    $("#dHint").textContent=msg;
+    $("#lvHint").textContent=msg;
+    return;
+  }
+  try{firebase.initializeApp(CFG);db=firebase.database()}catch(e){
+    $("#dHint").textContent="Firebase 초기화 실패: "+e.message;
+    return;
+  }
   if(!USE_AUTH){startData();return}
   auth=firebase.auth();$("#bLogout").hidden=false;
   auth.onAuthStateChanged(u=>{
@@ -953,7 +970,7 @@ $("#fRestore").onchange=async e=>{
 $("#tip").textContent="기구·선수를 끌어 옮기세요. 두 번 탭하면 글자 변경.";
 stageUpd(false);setArea("full",false);setOrient(innerHeight>innerWidth*1.1);
 push();rList();tab("area");connect();pillUpd();setEditUI();rFrames();rPlans();rPlanEd();tShow();gearUpd();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js");
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js?v=4");
 </script>
 </body>
 </html>
