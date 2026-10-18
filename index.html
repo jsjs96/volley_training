@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
 :root{--bg:#0e1a2b;--panel:#162640;--p2:#1d3252;--line:#2a4268;--text:#eaf1fb;--muted:#8da3c3;--acc:#f5c542}
 *{box-sizing:border-box}[hidden]{display:none!important}
@@ -43,7 +44,7 @@ h2{margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:700}h2:first-
 .chip[aria-pressed=true]{border-color:var(--acc);background:#2a3d5f;color:#fff}
 .chip.go{background:var(--acc);color:#14213a;border-color:var(--acc);font-weight:700}
 .tabs .chip{padding:7px 12px}
-textarea,input{width:100%;font:inherit;font-size:14px;color:var(--text);background:#0f1d33;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px}
+textarea,input,select{width:100%;font:inherit;font-size:14px;color:var(--text);background:#0f1d33;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px}
 textarea{min-height:80px;resize:vertical}
 .it{background:#0f1d33;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px}
 .it .ttl{font-weight:700;font-size:14px}.it .meta{font-size:12px;color:var(--muted);margin:2px 0 6px}
@@ -51,6 +52,12 @@ textarea{min-height:80px;resize:vertical}
 .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0;font-size:13px;color:var(--muted)}
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.5}
 .obj{cursor:grab}.obj.sel{filter:drop-shadow(0 0 2px #f5c542) drop-shadow(0 0 2px #f5c542)}
+.obj.lk{opacity:.9;cursor:default}
+.login{position:fixed;inset:0;background:rgba(5,10,20,.93);display:grid;place-items:center;z-index:20}
+.login .box{width:min(340px,90vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:var(--acc);color:#14213a;font-weight:900;font-size:22px;padding:14px 22px;border-radius:14px;z-index:15;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.tbig{font-size:64px;font-weight:900;text-align:center;line-height:1.1;margin-top:6px}.tinfo{text-align:center;color:var(--acc);font-weight:700;margin-bottom:8px}
+.col{flex:1;min-width:80px}
 </style>
 </head>
 <body>
@@ -58,6 +65,7 @@ textarea{min-height:80px;resize:vertical}
   <header class="top">
     <div class="brand"><span class="logo">🏐</span>배구 훈련판</div>
     <span class="pill off" id="cloud">이 기기에만 저장</span>
+    <span class="pill" id="tPill" hidden></span>
     <button class="chip" id="bFit">⤢ 맞춤</button>
     <button class="chip" id="bOrient">↻ 방향</button>
   </header>
@@ -115,26 +123,29 @@ textarea{min-height:80px;resize:vertical}
 
   <div class="selbar" id="selbar" hidden>
     <b id="selName"></b>
-    <button class="chip" id="sRot">↻ 회전</button>
-    <button class="chip" id="sBig">＋ 크게</button>
-    <button class="chip" id="sSml">－ 작게</button>
-    <button class="chip" id="sTxt">✎ 글자</button>
-    <button class="chip" id="sDup">⧉ 복제</button>
-    <button class="chip" id="sDel">🗑 삭제</button>
+    <button class="chip" id="sRot" data-e>↻ 회전</button>
+    <button class="chip" id="sBig" data-e>＋ 크게</button>
+    <button class="chip" id="sSml" data-e>－ 작게</button>
+    <button class="chip" id="sTxt" data-e>✎ 글자</button>
+    <button class="chip" id="sDup" data-e>⧉ 복제</button>
+    <button class="chip" id="sLock" data-e>🔒 잠금</button>
+    <button class="chip" id="sDel" data-e>🗑 삭제</button>
   </div>
 
   <nav class="dock">
     <button class="chip go" id="bTools">🧰 도구함</button>
     <button class="chip" data-tool="drag" aria-pressed="true">🧲 이동</button>
-    <button class="chip" data-tool="move" aria-pressed="false">┄ 이동선</button>
-    <button class="chip" data-tool="pass" aria-pressed="false">─ 패스</button>
-    <button class="chip" data-tool="spike" aria-pressed="false">💥 스파이크</button>
-    <button class="chip" data-tool="erase" aria-pressed="false">🧽 지우개</button>
-    <button class="chip" id="bUndo">↶</button>
-    <button class="chip" id="bRedo">↷</button>
+    <button class="chip" data-tool="move" data-e aria-pressed="false">┄ 이동선</button>
+    <button class="chip" data-tool="pass" data-e aria-pressed="false">─ 패스</button>
+    <button class="chip" data-tool="spike" data-e aria-pressed="false">💥 스파이크</button>
+    <button class="chip" data-tool="erase" data-e aria-pressed="false">🧽 지우개</button>
+    <button class="chip" data-tool="dist" data-e aria-pressed="false">📏 거리</button>
+    <button class="chip" id="bMulti" data-e aria-pressed="false">☑ 여러 개</button>
+    <button class="chip" id="bUndo" data-e>↶</button>
+    <button class="chip" id="bRedo" data-e>↷</button>
     <span class="sep"></span>
-    <button class="chip" id="bClearL">🧹 선지우기</button>
-    <button class="chip" id="bClearAll">🗑 전부지우기</button>
+    <button class="chip" id="bClearL" data-e>🧹 선지우기</button>
+    <button class="chip" id="bClearAll" data-e>🗑 전부지우기</button>
   </nav>
 
   <div class="sheet" id="sheet">
@@ -142,6 +153,11 @@ textarea{min-height:80px;resize:vertical}
       <button class="chip" data-tab="area">구역</button>
       <button class="chip" data-tab="gear">기구</button>
       <button class="chip" data-tab="drill">훈련 저장·불러오기</button>
+      <button class="chip" data-tab="steps">단계</button>
+      <button class="chip" data-tab="plan">계획표</button>
+      <button class="chip" data-tab="group">조편성</button>
+      <button class="chip" data-tab="timer">타이머</button>
+      <button class="chip" data-tab="live">연결</button>
       <button class="chip" id="bClose">✕ 닫기</button>
     </div>
     <div class="panes">
@@ -170,6 +186,13 @@ textarea{min-height:80px;resize:vertical}
           <button class="chip" id="sdPlus">＋</button>
           <span class="hint" style="margin:0">무대 깊이</span>
         </div>
+        <h2>구역 복사</h2>
+        <p class="hint" style="margin:0 0 6px">지금 보고 있는 1/2·1/4 구역의 기구와 화살표를, 같은 크기의 다른 구역으로 복사해요.</p>
+        <div class="row">
+          <button class="chip" data-e data-copy="Q1">→ ①</button><button class="chip" data-e data-copy="Q2">→ ②</button>
+          <button class="chip" data-e data-copy="Q3">→ ③</button><button class="chip" data-e data-copy="Q4">→ ④</button>
+          <button class="chip" data-e data-copy="L">→ 자팀쪽</button><button class="chip" data-e data-copy="R">→ 상대쪽</button>
+        </div>
         <h2>표시</h2>
         <div class="row">
           <button class="chip" id="bGuide" aria-pressed="false">구역 나눔선 ①~④</button>
@@ -182,47 +205,139 @@ textarea{min-height:80px;resize:vertical}
       <section data-pane="gear">
         <h2>기구 (눌러서 화면 가운데에 놓기 · 끌어서 이동)</h2>
         <div class="row">
-          <button class="chip" data-add="cone">🔶 콘</button>
-          <button class="chip" data-add="ball">🏐 공</button>
-          <button class="chip" data-add="basket">🧺 공바구니</button>
-          <button class="chip" data-add="ladder">🪜 사다리</button>
-          <button class="chip" data-add="hurdle">🚧 허들</button>
-          <button class="chip" data-add="pole">📍 폴</button>
-          <button class="chip" data-add="mat">🟩 매트</button>
-          <button class="chip" data-add="target">🎯 표적</button>
-          <button class="chip" data-add="zone">🟨 구역 표시</button>
+          <button class="chip" data-e data-add="cone">🔶 콘</button>
+          <button class="chip" data-e data-add="ball">🏐 공</button>
+          <button class="chip" data-e data-add="basket">🧺 공바구니</button>
+          <button class="chip" data-e data-add="ladder">🪜 사다리</button>
+          <button class="chip" data-e data-add="hurdle">🚧 허들</button>
+          <button class="chip" data-e data-add="pole">📍 폴</button>
+          <button class="chip" data-e data-add="mat">🟩 매트</button>
+          <button class="chip" data-e data-add="target">🎯 표적</button>
+          <button class="chip" data-e data-add="zone">🟨 구역 표시</button>
+          <button class="chip" data-e data-add="szone">🔢 서브 목표존</button>
+          <button class="chip" data-e data-add="stand">🥅 네트 스탠드</button>
+          <button class="chip" data-e data-add="chair">🪑 의자</button>
+          <button class="chip" data-e data-add="cart">🛒 볼 카트</button>
+          <button class="chip" data-e data-add="jbox">📦 점프박스</button>
+          <button class="chip" data-e data-add="tape">➖ 라인 테이프</button>
         </div>
         <h2>사람 · 글자</h2>
         <div class="row">
-          <button class="chip" data-add="pb">🔵 선수</button>
-          <button class="chip" data-add="pr">🔴 선수(상대)</button>
-          <button class="chip" data-add="pc">🟣 코치</button>
-          <button class="chip" data-add="text">🔤 글자</button>
+          <button class="chip" data-e data-add="pb">🔵 선수</button>
+          <button class="chip" data-e data-add="pr">🔴 선수(상대)</button>
+          <button class="chip" data-e data-add="pc">🟣 코치</button>
+          <button class="chip" data-e data-add="text">🔤 글자</button>
+        </div>
+        <h2>준비물 집계</h2>
+        <div class="it" id="gearList"></div>
+        <h2>화살표 옵션</h2>
+        <div class="row" id="penC">
+          <button class="chip" data-pc="" aria-pressed="true">기본색</button>
+          <button class="chip" data-pc="#d32f2f" aria-pressed="false" style="border-left:12px solid #d32f2f">빨강</button>
+          <button class="chip" data-pc="#1565c0" aria-pressed="false" style="border-left:12px solid #1565c0">파랑</button>
+          <button class="chip" data-pc="#2e7d32" aria-pressed="false" style="border-left:12px solid #2e7d32">초록</button>
+          <button class="chip" data-pc="#ffffff" aria-pressed="false" style="border-left:12px solid #fff">흰색</button>
+          <button class="chip" data-pc="#f5c542" aria-pressed="false" style="border-left:12px solid #f5c542">노랑</button>
+        </div>
+        <div class="row">
+          <button class="chip" data-pw="1" aria-pressed="true">가늘게</button>
+          <button class="chip" data-pw="1.8" aria-pressed="false">굵게</button>
+          <button class="chip" id="bCurve" aria-pressed="false">곡선</button>
+          <button class="chip" id="bNum" aria-pressed="false">순서번호 ①②③</button>
         </div>
         <p class="hint">기구를 누르면 아래쪽 바에 [회전 · 크게 · 작게 · 글자 · 복제 · 삭제]가 나타납니다. 선수와 기구는 두 번 탭하면 번호·이름을 바꿀 수 있어요. 🧽 지우개 도구로 기구를 눌러도 지워집니다.</p>
+      </section>
+
+      <section data-pane="steps">
+        <div class="row">
+          <button class="chip" id="bFAdd" data-e>＋ 현재 장면을 단계로 추가</button>
+          <button class="chip" id="bFSave" data-e>선택 단계 덮어쓰기</button>
+          <button class="chip" id="bFDel" data-e>선택 단계 삭제</button>
+          <button class="chip go" id="bPlay">▶ 재생</button>
+        </div>
+        <div class="row" id="frameList"></div>
+        <p class="hint">1단계(서브) → 2단계(리시브) → 3단계(공격)처럼, 기구와 선수를 배치한 뒤 [단계로 추가]를 누르세요. 재생하면 선수와 기구가 단계마다 움직여요. 재생은 내 화면에서만 돌고, 끝나면 원래 상태로 돌아옵니다. 단계는 훈련을 저장할 때 같이 저장돼요.</p>
+      </section>
+
+      <section data-pane="plan">
+        <div class="row"><input id="pDate" type="date" class="col" style="margin:0"><input id="pName" class="col" placeholder="계획 이름 (예: 화요 정기훈련)" style="margin:0;flex:2"></div>
+        <div class="row"><select id="pPick" class="col" style="margin:0;flex:3"></select><button class="chip go" id="bPAdd" data-e>＋ 추가</button></div>
+        <div id="pItems"></div>
+        <p class="hint" id="pTotal" style="color:var(--acc);font-weight:700"></p>
+        <div class="row" style="margin-top:8px"><button class="chip go" id="bPSave" data-e>계획 저장</button><button class="chip" id="bPNew" data-e>새 계획</button><button class="chip go" id="bPShare">카톡 공유(글)</button></div>
+        <h2>저장한 계획표</h2>
+        <div id="pList"></div>
+      </section>
+
+      <section data-pane="group">
+        <textarea id="gNames" placeholder="이름을 줄마다 또는 쉼표로 적어 주세요. 실력 점수는 '이름:7'처럼 뒤에 붙여요 (선택)"></textarea>
+        <div class="row">
+          <input id="gN" class="col" type="number" min="2" max="6" value="2" style="margin:0" placeholder="조 수">
+          <button class="chip" data-gm="rand" aria-pressed="true">랜덤</button>
+          <button class="chip" data-gm="bal" aria-pressed="false">실력 균형</button>
+          <button class="chip go" id="bGroup" data-e>조 편성</button>
+        </div>
+        <div id="gOut"></div>
+        <div class="row"><button class="chip" id="bPlace" data-e>코트에 선수로 배치</button></div>
+        <p class="hint">조 수가 2개면 자팀쪽·상대쪽, 3~4개면 ①~④ 구역에 조 순서대로 배정돼요. [코트에 선수로 배치]를 누르면 각 구역에 이름표가 붙은 선수가 자동으로 놓입니다. 이름 목록은 이 기기에 저장됩니다.</p>
+      </section>
+
+      <section data-pane="timer">
+        <div class="tbig" id="tBig">01:00</div><div class="tinfo" id="tInfo">준비</div>
+        <div class="row">
+          <div class="col"><div class="hint">운동(초)</div><input id="tW" type="number" value="60" style="margin:0"></div>
+          <div class="col"><div class="hint">휴식(초)</div><input id="tR" type="number" value="15" style="margin:0"></div>
+          <div class="col"><div class="hint">세트 수</div><input id="tN" type="number" value="5" style="margin:0"></div>
+        </div>
+        <div class="hint">다음 세트 시작 안내 문구 (예: 다음 구역으로 이동!)</div>
+        <input id="tMsg" value="다음 세트! 구역을 이동하세요">
+        <div class="row"><button class="chip go" id="bTStart">시작</button><button class="chip" id="bTReset">초기화</button></div>
+        <p class="hint">시간이 끝나면 소리와 진동, 화면 알림이 나와요. 도구함을 닫아도 위쪽에 남은 시간이 보입니다. 화면이 꺼지면 알림이 늦을 수 있으니 켜 둔 채로 쓰세요. 타이머는 내 폰에서만 돌아갑니다.</p>
+      </section>
+
+      <section data-pane="live">
+        <div class="row"><button class="chip go" id="bLive">실시간 연결 끄기</button><button class="chip" id="bLogout" hidden>로그아웃</button></div>
+        <p class="hint" id="lvHint">연결 중이에요…</p>
+        <p class="hint">연결하면 훈련판(기구·선수·화살표·훈련 이름과 설명)이 팀 전체에 실시간으로 공유돼요. 보는 구역과 확대는 사람마다 따로라서, 그룹마다 다른 1/4 구역을 보면서 같이 쓸 수 있습니다. 혼자 연습해 보고 싶을 땐 연결을 끄세요.</p>
+        <p class="hint">불러오기·새 훈련·전부지우기는 <b>모두의 화면</b>에 적용됩니다.</p>
       </section>
 
       <section data-pane="drill">
         <input id="dTitle" placeholder="훈련 이름 (예: 2:2 리시브 연습)">
         <input id="dCat" list="catList" placeholder="분류 (리시브, 서브, 토스, 공격, 수비 …)">
         <datalist id="catList"><option value="리시브"><option value="서브"><option value="토스"><option value="공격"><option value="수비"><option value="블로킹"><option value="체력"><option value="게임"></datalist>
-        <textarea id="dMemo" placeholder="설명·포인트 (인원, 시간, 진행 방법)"></textarea>
+        <textarea id="dMemo" placeholder="설명·포인트 (진행 방법, 주의할 점)"></textarea>
         <div class="row">
-          <button class="chip go" id="dSave">저장</button>
-          <button class="chip" id="dNew">새 훈련</button>
+          <input id="dPpl" class="col" type="number" min="0" placeholder="인원(명)" style="margin:0">
+          <input id="dMin" class="col" type="number" min="0" placeholder="시간(분)" style="margin:0">
+          <select id="dLvl" class="col" style="margin:0"><option value="">난이도</option><option>하</option><option>중</option><option>상</option></select>
+        </div>
+        <div class="row">
+          <button class="chip go" id="dSave" data-e>저장</button>
+          <button class="chip" id="dNew" data-e>새 훈련</button>
           <button class="chip go" id="bPng">이미지 저장</button>
           <button class="chip go" id="bShare">공유(카톡)</button>
         </div>
         <h2>저장한 훈련</h2>
+        <div class="row" id="dFilt"></div>
         <input id="dSearch" placeholder="검색 (이름·분류·설명)">
         <div id="dList"></div>
         <div class="pager" id="dPager"></div>
+        <h2>백업</h2>
+        <div class="row"><button class="chip" id="bBackup">백업 파일 저장</button><button class="chip" id="bRestore" data-e>백업 복원</button><input type="file" id="fRestore" accept=".json" hidden></div>
         <p class="hint" id="dHint"></p>
       </section>
     </div>
   </div>
 </div>
 
+<div id="login" class="login" hidden><div class="box">
+  <h2 style="color:var(--text);font-size:16px">🏐 훈련판 로그인</h2>
+  <input id="lEmail" type="email" placeholder="이메일" autocomplete="username">
+  <input id="lPw" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <div class="row"><button class="chip go" id="bLogin">로그인</button><button class="chip" id="bLocal">로그인 없이 (이 기기에서만)</button></div>
+  <p class="hint" id="lMsg"></p></div></div>
+<div class="toast" id="toast" hidden></div>
 <script>
 const $=s=>document.querySelector(s),NS="http://www.w3.org/2000/svg";
 const court=$("#court"),world=$("#world");
@@ -230,7 +345,7 @@ const mk=(n,a={})=>{const e=document.createElementNS(NS,n);for(const k in a)e.se
 const h=(t,txt,fn)=>{const e=document.createElement(t);e.textContent=txt;if(fn)e.onclick=fn;return e};
 const rid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const S={stage:true,sd:40,area:"full",atk:true,ant:true,guide:false};
-let R=0,vbCur=[-14,-14,238,133],objs=[],lines=[],sel=null,drag=null,cur=null,tool="drag",H=[],hi=-1,curId=null;
+let R=0,vbCur=[-14,-14,238,133],objs=[],lines=[],sel=null,drag=null,cur=null,tool="drag",H=[],hi=-1,curId=null,rref=null,pref=null,room=false,synced=false,pubQ=null,nUsers=0,db=null,known={o:{},l:{}},selSet=new Set(),playing=false,frames=[],cf=-1,canEdit=true,msMode=false,pending=null,PEN={c:"",w:1,curve:false,num:false};
 const under=mk("g"),lineL=mk("g"),over=mk("g");world.append(under,lineL,over);lineL.style.pointerEvents="none";
 
 /* ---------- 구역 · 보기 ---------- */
@@ -274,7 +389,7 @@ $("#bOrient").onclick=()=>setOrient(R==0);
 $("#bFit").onclick=()=>go(vbFor(S.area),true);
 
 /* ---------- 기구 · 사람 ---------- */
-const NM={cone:"콘",ball:"공",basket:"공바구니",ladder:"사다리",hurdle:"허들",pole:"폴",mat:"매트",target:"표적",zone:"구역 표시",pb:"선수",pr:"선수(상대)",pc:"코치",text:"글자"};
+const NM={cone:"콘",ball:"공",basket:"공바구니",ladder:"사다리",hurdle:"허들",pole:"폴",mat:"매트",target:"표적",zone:"구역 표시",pb:"선수",pr:"선수(상대)",pc:"코치",text:"글자",szone:"서브 목표존",stand:"네트 스탠드",chair:"의자",cart:"볼 카트",jbox:"점프박스",tape:"라인 테이프"};
 const PCOL={pb:"#3b82f6",pr:"#ef5350",pc:"#8b5cf6"};
 const SH={
   cone:{ly:6,d:i=>i.append(mk("circle",{r:2.8,fill:"#ff7a1a",stroke:"#fff","stroke-width":.8}),mk("circle",{r:1.1,fill:"#fff"}))},
@@ -286,6 +401,12 @@ const SH={
   mat:{ly:8,u:1,d:i=>i.append(mk("rect",{x:-10,y:-5,width:20,height:10,rx:1.5,fill:"#2f9e8f",stroke:"#fff","stroke-width":.8}))},
   target:{ly:11,d:i=>[8,5.5,3,1].forEach((r,k)=>i.append(mk("circle",{r,fill:k%2?"#fff":"#e53935",stroke:"#fff","stroke-width":.4})))},
   zone:{ly:1,u:1,d:i=>i.append(mk("rect",{x:-20,y:-20,width:40,height:40,fill:"rgba(245,197,66,.25)",stroke:"#f5c542","stroke-width":1,"stroke-dasharray":"3 2"}))},
+  szone:{ly:1,u:1,d:i=>i.append(mk("rect",{x:-15,y:-17.5,width:30,height:35,fill:"rgba(229,57,53,.22)",stroke:"#e53935","stroke-width":1,"stroke-dasharray":"3 2"}))},
+  stand:{ly:6,d:i=>i.append(mk("circle",{r:3,fill:"#6b7a92",stroke:"#fff","stroke-width":.8}),mk("circle",{r:1.2,fill:"#1b2433"}))},
+  chair:{ly:6,d:i=>i.append(mk("rect",{x:-3.5,y:-3.5,width:7,height:7,rx:1,fill:"#8b6b3e",stroke:"#fff","stroke-width":.8}))},
+  cart:{ly:8,d:i=>i.append(mk("rect",{x:-8,y:-5,width:16,height:10,rx:2,fill:"#4b5d7a",stroke:"#fff","stroke-width":.8}),mk("circle",{cx:-3,r:2,fill:"#f5c542"}),mk("circle",{cx:3,r:2,fill:"#f5c542"}))},
+  jbox:{ly:7,d:i=>i.append(mk("rect",{x:-6,y:-4,width:12,height:8,rx:1,fill:"#c9732d",stroke:"#fff","stroke-width":.8}))},
+  tape:{ly:4,u:1,d:i=>i.append(mk("rect",{x:-20,y:-.8,width:40,height:1.6,fill:"#f5c542"}))},
   pb:{p:1},pr:{p:1},pc:{p:1},text:{}};
 function build(o){
   const def=SH[o.t],g=mk("g",{class:"obj"}),inn=mk("g"),hit=mk("circle",{r:7,fill:"transparent"});
@@ -293,24 +414,31 @@ function build(o){
   const tx=mk("text",{"text-anchor":"middle","font-weight":700,"pointer-events":"none"});
   inn.append(tx);g.append(hit,inn);
   g.addEventListener("pointerdown",e=>down(e,o));
-  (def.u?under:over).append(g);
+  if(o.k)g.classList.add("lk");(def.u?under:over).append(g);
   o.el=g;o.inn=inn;o.tx=tx;o.hit=hit;upd(o)}
 function upd(o){
   const def=SH[o.t],L=(o.l||"").length;let fs,y;
-  if(def.p){fs=L<=2?6.5:L==3?4.2:3.2;y=fs*.36}else if(o.t=="text"){fs=8;y=3}else{fs=4;y=def.ly}
+  if(def.p){fs=L<=2?6.5:L==3?4.2:3.2;y=fs*.36}else if(o.t=="text"){fs=8;y=3}else if(o.t=="szone"){fs=12;y=4}else{fs=4;y=def.ly}
   o.el.setAttribute("transform",`translate(${o.x} ${o.y}) rotate(${o.r})`);
   o.inn.setAttribute("transform",`scale(${o.s})`);
   o.hit.setAttribute("r",o.t=="text"?Math.max(7,L*4):7);
   const t=o.tx;t.textContent=o.l||"";t.setAttribute("font-size",fs);t.setAttribute("y",y);
   t.setAttribute("transform",`rotate(${R-o.r} 0 ${y})`);t.setAttribute("fill","#fff");
-  t.setAttribute("stroke",def.p?"none":"#0d1b3d");t.setAttribute("stroke-width",def.p?0:.9);t.setAttribute("paint-order","stroke")}
-const place=o=>o.el.setAttribute("transform",`translate(${o.x} ${o.y}) rotate(${o.r})`);
+  t.setAttribute("stroke",def.p?"none":"#0d1b3d");t.setAttribute("stroke-width",def.p?0:.9);t.setAttribute("paint-order","stroke");pub()}
+const place=o=>{o.el.setAttribute("transform",`translate(${o.x} ${o.y}) rotate(${o.r})`);pub()};
 function rebuild(){under.replaceChildren();over.replaceChildren();objs.forEach(build)}
-function select(o){
-  sel=o;document.querySelectorAll(".obj.sel").forEach(e=>e.classList.remove("sel"));
-  if(o)o.el.classList.add("sel");$("#selbar").hidden=!o;if(o)$("#selName").textContent=NM[o.t]}
+function refreshSel(){
+  document.querySelectorAll(".obj.sel").forEach(e=>e.classList.remove("sel"));
+  selSet.forEach(o=>o.el&&o.el.classList.add("sel"));
+  const t=[...selSet];
+  $("#selbar").hidden=!t.length;
+  if(t.length){$("#selName").textContent=t.length>1?t.length+"개 선택":NM[t[0].t]+(t[0].k?" 🔒":"");
+    $("#sLock").textContent=t.every(o=>o.k)?"🔓 잠금해제":"🔒 잠금"}}
+function select(o,add){
+  if(!o)selSet.clear();else if(add){selSet.has(o)?selSet.delete(o):selSet.add(o)}else selSet=new Set([o]);
+  refreshSel()}
 function toC(e){const p=court.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(world.getScreenCTM().inverse())}
-function addObj(t){
+function addObj(t){if(!canEdit)return;
   const q=court.getBoundingClientRect(),c=toC({clientX:q.left+q.width/2,clientY:q.top+q.height/2});
   const o={id:rid(),t,x:c.x+(Math.random()*10-5),y:c.y+(Math.random()*10-5),r:0,s:1,l:""};
   if(t=="text"){const v=prompt("화면에 쓸 글자");if(!v)return;o.l=v.trim().slice(0,20)}
@@ -318,34 +446,61 @@ function addObj(t){
   if(t=="zone"||t=="mat")o.s=1;
   objs.push(o);build(o);select(o);push()}
 document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>addObj(b.dataset.add));
-function editLabel(o){
+function editLabel(o){if(!canEdit)return;
   const v=prompt("표시할 글자 (번호·이름)",o.l||"");if(v===null)return;
   o.l=v.trim().slice(0,SH[o.t].p?6:20);upd(o);push()}
-function delObj(o){objs=objs.filter(x=>x!==o);o.el.remove();if(sel===o)select(null);push()}
-$("#sRot").onclick=()=>{if(sel){sel.r=(sel.r+45)%360;upd(sel);push()}};
-$("#sBig").onclick=()=>{if(sel){sel.s=Math.min(4,sel.s*1.25);upd(sel);push()}};
-$("#sSml").onclick=()=>{if(sel){sel.s=Math.max(.4,sel.s/1.25);upd(sel);push()}};
-$("#sTxt").onclick=()=>{if(sel)editLabel(sel)};
-$("#sDel").onclick=()=>{if(sel)delObj(sel)};
-$("#sDup").onclick=()=>{if(!sel)return;const o={...sel,id:rid(),x:sel.x+8,y:sel.y+8};delete o.el;objs.push(o);build(o);select(o);push()};
+function delObj(o){objs=objs.filter(x=>x!==o);o.el.remove();selSet.delete(o);refreshSel();push()}
+function eachSel(f,ok){const t=[...selSet].filter(o=>ok||!o.k);if(!t.length||!canEdit)return;t.forEach(f);refreshSel();push()}
+$("#sRot").onclick=()=>eachSel(o=>{o.r=(o.r+45)%360;upd(o)});
+$("#sBig").onclick=()=>eachSel(o=>{o.s=Math.min(4,o.s*1.25);upd(o)});
+$("#sSml").onclick=()=>eachSel(o=>{o.s=Math.max(.4,o.s/1.25);upd(o)});
+$("#sTxt").onclick=()=>{if(selSet.size==1)editLabel([...selSet][0])};
+$("#sDel").onclick=()=>eachSel(o=>{objs=objs.filter(x=>x!==o);o.el.remove();selSet.delete(o)});
+$("#sLock").onclick=()=>{const t=[...selSet];if(!t.length||!canEdit)return;const lk=!t.every(o=>o.k);
+  t.forEach(o=>{o.k=lk?1:0;o.el.classList.toggle("lk",lk)});refreshSel();push()};
+$("#sDup").onclick=()=>{if(!canEdit)return;const c=[];
+  [...selSet].forEach(o=>{const n={...o,id:rid(),x:o.x+8,y:o.y+8,k:0};delete n.el;objs.push(n);build(n);c.push(n)});
+  selSet=new Set(c);refreshSel();push()};
 
 /* ---------- 화살표(선) ---------- */
+const DEF={move:["#0d1b3d",1.4,"4 3"],pass:["#0d1b3d",1.4,""],spike:["#d32f2f",2.2,""]};
+function marker(c){
+  const id="mk"+c.replace("#","");
+  if(!document.getElementById(id)){const m=mk("marker",{id,viewBox:"0 0 10 10",refX:8,refY:5,markerWidth:3.4,markerHeight:3.4,orient:"auto"});
+    m.append(mk("path",{d:"M0 0L10 5L0 10z",fill:c}));court.querySelector("defs").append(m)}
+  return `url(#${id})`}
 function lineEl(l){
-  const g=mk("g"),[a,b]=l.p,st={move:["#0d1b3d",1.4,"4 3","url(#ah1)"],pass:["#0d1b3d",1.4,"","url(#ah1)"],spike:["#d32f2f",2.2,"","url(#ah2)"]}[l.t];
-  const ln=mk("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:st[0],"stroke-width":st[1],"stroke-linecap":"round","marker-end":st[3]});
-  if(st[2])ln.setAttribute("stroke-dasharray",st[2]);
+  const g=mk("g"),[a,b]=l.p;
+  if(l.t=="dist"){
+    const m=[(a[0]+b[0])/2,(a[1]+b[1])/2-2],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    g.append(mk("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:"#fff","stroke-width":.9,"stroke-dasharray":"2 2"}),
+      mk("circle",{cx:a[0],cy:a[1],r:1.3,fill:"#fff"}),mk("circle",{cx:b[0],cy:b[1],r:1.3,fill:"#fff"}));
+    const t=mk("text",{x:m[0],y:m[1],"text-anchor":"middle","font-size":5,"font-weight":900,fill:"#fff",stroke:"#0d1b3d","stroke-width":1,"paint-order":"stroke",transform:`rotate(${R} ${m[0]} ${m[1]})`});
+    t.textContent=(len/10).toFixed(1)+"m";g.append(t);return g}
+  const d=DEF[l.t],c=l.c||d[0],w=d[1]*(l.w||1);
+  let ds,mid;
+  if(l.q){const dx=b[0]-a[0],dy=b[1]-a[1],cx=(a[0]+b[0])/2-dy*.25,cy=(a[1]+b[1])/2+dx*.25;
+    ds=`M${a[0]} ${a[1]}Q${cx} ${cy} ${b[0]} ${b[1]}`;mid=[(a[0]+2*cx+b[0])/4,(a[1]+2*cy+b[1])/4]}
+  else{ds=`M${a[0]} ${a[1]}L${b[0]} ${b[1]}`;mid=[(a[0]+b[0])/2,(a[1]+b[1])/2]}
+  const ln=mk("path",{d:ds,fill:"none",stroke:c,"stroke-width":w,"stroke-linecap":"round","marker-end":marker(c)});
+  if(d[2])ln.setAttribute("stroke-dasharray",d[2]);
   g.append(ln);
   if(l.t=="spike"){const t=mk("text",{x:a[0],y:a[1]+3,"text-anchor":"middle","font-size":9,transform:`rotate(${R} ${a[0]} ${a[1]})`});t.textContent="💥";g.append(t)}
+  if(l.n){const bd=mk("g",{transform:`translate(${mid[0]} ${mid[1]})`});
+    bd.append(mk("circle",{r:3.4,fill:c,stroke:c=="#ffffff"?"#0d1b3d":"#fff","stroke-width":.7}));
+    const t=mk("text",{"text-anchor":"middle",y:1.6,"font-size":4.6,"font-weight":900,fill:c=="#ffffff"||c=="#f5c542"?"#0d1b3d":"#fff",transform:`rotate(${R})`});
+    t.textContent=l.n;bd.append(t);g.append(bd)}
   return g}
-const rLines=()=>lineL.replaceChildren(...lines.map(lineEl));
+const nextNum=()=>lines.reduce((m,l)=>Math.max(m,l.n||0),0)+1;
+const rLines=()=>{lineL.replaceChildren(...lines.map(lineEl));pub()};
 const dseg=(p,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy||1;
   let t=((p.x-a[0])*dx+(p.y-a[1])*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-a[0]-t*dx,p.y-a[1]-t*dy)};
 
 /* ---------- 되돌리기 ---------- */
-const oo=o=>({id:o.id,t:o.t,x:+o.x.toFixed(1),y:+o.y.toFixed(1),r:o.r,s:+o.s.toFixed(2),l:o.l||""});
+const oo=o=>({id:o.id,t:o.t,x:+o.x.toFixed(1),y:+o.y.toFixed(1),r:o.r,s:+o.s.toFixed(2),l:o.l||"",k:o.k?1:0});
 const snapH=()=>JSON.stringify({o:objs.map(oo),l:lines});
-function push(){H=H.slice(0,hi+1);H.push(snapH());hi=H.length-1}
-function applyH(s){const d=JSON.parse(s);objs=d.o.map(x=>({...x}));lines=d.l;sel=null;rebuild();rLines();select(null)}
+function push(){H=H.slice(0,hi+1);H.push(snapH());hi=H.length-1;pub()}
+function applyH(s){const d=JSON.parse(s);objs=d.o.map(x=>({...x}));lines=d.l;rebuild();rLines();selSet.clear();refreshSel()}
 $("#bUndo").onclick=()=>{if(hi>0){hi--;applyH(H[hi])}};
 $("#bRedo").onclick=()=>{if(hi<H.length-1){hi++;applyH(H[hi])}};
 $("#bClearL").onclick=()=>{lines=[];rLines();push()};
@@ -355,24 +510,29 @@ $("#bClearAll").onclick=()=>{if(!objs.length&&!lines.length)return;if(!confirm("
 /* ---------- 조작: 이동 · 그리기 · 두 손가락 ---------- */
 const ptrs=new Map();let pinching=false,pz=null;
 function down(e,o){
-  if(ptrs.size>1)return;
-  if(tool=="erase"){e.preventDefault();e.stopPropagation();delObj(o);return}
+  if(ptrs.size>1||!canEdit)return;
+  if(tool=="erase"){e.preventDefault();e.stopPropagation();if(!o.k)delObj(o);return}
   if(tool!="drag")return;
-  e.preventDefault();e.stopPropagation();select(o);
-  const p=toC(e);drag={o,dx:o.x-p.x,dy:o.y-p.y,sx:o.x,sy:o.y};o.el.parentNode.append(o.el)}
+  e.preventDefault();e.stopPropagation();
+  if(msMode){select(o,true);return}
+  if(!selSet.has(o))select(o);
+  if(o.k)return;
+  const p=toC(e),grp=(selSet.size>1?[...selSet]:[o]).filter(x=>!x.k);
+  drag={o,dx:o.x-p.x,dy:o.y-p.y,sx:o.x,sy:o.y,g:grp.map(x=>[x,x.x,x.y])};o.el.parentNode.append(o.el)}
 court.addEventListener("pointerdown",e=>{
   if(ptrs.size>1||!e.isPrimary&&ptrs.size)return;
-  if(tool=="drag"){select(null);return}
+  if(tool=="drag"){if(!msMode)select(null);return}
+  if(!canEdit)return;
   e.preventDefault();const p=toC(e);
   if(tool=="erase"){let bi=-1,bd=5;
     lines.forEach((l,i)=>{const d=dseg(p,l.p[0],l.p[1]);if(d<bd){bd=d;bi=i}});
     if(bi>=0){lines.splice(bi,1);rLines();push()}return}
-  cur={t:tool,p:[[p.x,p.y],[p.x,p.y]]};cur.el=lineEl(cur);lineL.append(cur.el)});
+  cur={t:tool,p:[[p.x,p.y],[p.x,p.y]],c:PEN.c,w:PEN.w,q:PEN.curve?1:0};cur.el=lineEl(cur);lineL.append(cur.el)});
 addEventListener("pointermove",e=>{
   if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,[e.clientX,e.clientY]);
   if(pinching){pinchMove();return}
-  if(drag){const p=toC(e),o=drag.o,ymin=-20-S.sd-12;
-    o.x=Math.max(-25,Math.min(235,p.x+drag.dx));o.y=Math.max(ymin,Math.min(130,p.y+drag.dy));place(o)}
+  if(drag){const p=toC(e),ymin=-20-S.sd-12,dx=p.x+drag.dx-drag.sx,dy=p.y+drag.dy-drag.sy;
+    drag.g.forEach(([x,x0,y0])=>{x.x=Math.max(-25,Math.min(235,x0+dx));x.y=Math.max(ymin,Math.min(130,y0+dy));place(x)})}
   else if(cur){const p=toC(e);cur.p[1]=[p.x,p.y];const n=lineEl(cur);cur.el.replaceWith(n);cur.el=n}});
 function up(){
   if(drag){const o=drag.o;
@@ -380,7 +540,7 @@ function up(){
     else{const t=Date.now();if(o.tap&&t-o.tap<400){o.tap=0;editLabel(o)}else o.tap=t}
     drag=null}
   if(cur){const[a,b]=cur.p;cur.el.remove();
-    if(Math.hypot(a[0]-b[0],a[1]-b[1])>4){lines.push({id:rid(),t:cur.t,p:cur.p});rLines();push()}
+    if(Math.hypot(a[0]-b[0],a[1]-b[1])>4){lines.push({id:rid(),t:cur.t,p:cur.p,c:cur.c,w:cur.w,q:cur.q,n:(PEN.num&&cur.t!="dist")?nextNum():0});rLines();push()}
     cur=null}}
 addEventListener("pointerup",up);addEventListener("pointercancel",up);
 document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{
@@ -389,7 +549,7 @@ document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{
   court.style.cursor=tool=="drag"?"":"crosshair";
   $("#tip").textContent={drag:"기구·선수를 끌어 옮기세요. 두 번 탭하면 글자 변경.",move:"끌어서 점선 화살표(선수 이동)를 그리세요.",
     pass:"끌어서 실선 화살표(패스·토스)를 그리세요.",spike:"💥에서 시작해 끌어서 스파이크·서브 화살표를 그리세요.",
-    erase:"지울 선이나 기구를 누르세요."}[tool]});
+    erase:"지울 선이나 기구를 누르세요.",dist:"두 점을 끌어 거리(m)를 재세요. 코트 실제 크기 기준이에요."}[tool]});
 /* 확대 · 이동 (두 손가락 / 마우스 휠) */
 const vbNow=()=>court.getAttribute("viewBox").split(" ").map(Number);
 function mapr(vb){const q=court.getBoundingClientRect(),k=Math.min(q.width/vb[2],q.height/vb[3]);
@@ -433,7 +593,7 @@ const LK="vt_drills_v1",CFG={apiKey:"AIzaSyAd-SCWlKLVxuUF0QsxwAu00pHjn-SHa7M",au
 let drills={},dref=null,dpage=0;const DPP=6;
 try{drills=JSON.parse(localStorage.getItem(LK))||{}}catch(e){}
 const lsSet=()=>{try{localStorage.setItem(LK,JSON.stringify(drills))}catch(e){alert("이 브라우저에서는 저장 공간을 쓸 수 없어요.")}};
-const snapAll=()=>({o:objs.map(oo),l:lines,area:S.area,stage:S.stage,sd:S.sd,atk:S.atk,ant:S.ant});
+const snapAll=()=>({o:objs.map(oo),l:lines,f:frames,area:S.area,stage:S.stage,sd:S.sd,atk:S.atk,ant:S.ant});
 function saveRec(rec){
   rec=JSON.parse(JSON.stringify(rec));drills[rec.id]=rec;lsSet();
   if(dref)dref.child(rec.id).set(rec).catch(()=>{$("#dHint").textContent="공유 저장소에 쓰지 못했어요. 이 기기에는 저장됐습니다."});
@@ -442,9 +602,9 @@ function delRec(id){delete drills[id];lsSet();if(dref)dref.child(id).remove().ca
 function loadRec(r){
   const d=r.d||{};
   objs=(d.o||[]).map(x=>({...x,l:x.l||"",r:x.r||0,s:x.s||1}));
-  lines=(d.l||[]).map(l=>({id:l.id||rid(),t:l.t,p:l.p}));
+  lines=(d.l||[]).map(l=>({...l,id:l.id||rid()}));
   S.sd=d.sd||40;S.stage=d.stage!==false;S.atk=d.atk!==false;S.ant=d.ant!==false;applyToggles();
-  curId=r.id;$("#dTitle").value=r.n||"";$("#dCat").value=r.c||"";$("#dMemo").value=r.m||"";
+  curId=r.id;$("#dTitle").value=r.n||"";$("#dCat").value=r.c||"";$("#dMemo").value=r.m||"";$("#dPpl").value=r.p||"";$("#dMin").value=r.mn||"";$("#dLvl").value=r.lv||"";frames=d.f||[];cf=-1;rFrames();
   rebuild();rLines();select(null);stageUpd(false);setArea(d.area||"full",true);push();
   $("#sheet").classList.remove("open")}
 $("#dSave").onclick=()=>{
@@ -452,44 +612,71 @@ $("#dSave").onclick=()=>{
   const ex=Object.values(drills).find(x=>x.n==n);
   if(ex&&ex.id!==curId&&!confirm("같은 이름의 훈련이 있어요. 덮어쓸까요?"))return;
   const id=ex?ex.id:rid();
-  saveRec({id,n,c:$("#dCat").value.trim(),m:$("#dMemo").value,a:S.area,u:Date.now(),d:snapAll()});
+  saveRec({id,n,c:$("#dCat").value.trim(),m:$("#dMemo").value,a:S.area,u:Date.now(),p:+$("#dPpl").value||0,mn:+$("#dMin").value||0,lv:$("#dLvl").value,fv:ex?(ex.fv||0):0,d:snapAll()});
   curId=id;$("#dHint").textContent="저장했어요: "+n};
 $("#dNew").onclick=()=>{
   if((objs.length||lines.length)&&!confirm("지금 화면을 비우고 새 훈련을 시작할까요? (저장하지 않은 내용은 사라져요)"))return;
-  objs=[];lines=[];curId=null;$("#dTitle").value=$("#dCat").value=$("#dMemo").value="";
+  objs=[];lines=[];curId=null;$("#dTitle").value=$("#dCat").value=$("#dMemo").value="";$("#dPpl").value=$("#dMin").value="";$("#dLvl").value="";frames=[];cf=-1;rFrames();
   rebuild();rLines();select(null);push()};
+let dfilt="";
 function rList(){
-  const q=$("#dSearch").value.trim().toLowerCase();
-  const all=Object.values(drills).filter(r=>!q||((r.n||"")+(r.c||"")+(r.m||"")).toLowerCase().includes(q)).sort((a,b)=>(b.u||0)-(a.u||0));
+  const q=$("#dSearch").value.trim().toLowerCase(),vals=Object.values(drills);
+  const cats=[...new Set(vals.map(r=>r.c).filter(Boolean))];
+  const fb=$("#dFilt");fb.replaceChildren();
+  [["","전체"],["★","★ 즐겨찾기"],...cats.map(c=>[c,c])].forEach(([v,t])=>{
+    const b=h("button",t,()=>{dfilt=v;dpage=0;rList()});b.className="chip";b.setAttribute("aria-pressed",dfilt==v);fb.append(b)});
+  const all=vals.filter(r=>(!q||((r.n||"")+(r.c||"")+(r.m||"")).toLowerCase().includes(q))&&(!dfilt||(dfilt=="★"?r.fv:r.c==dfilt)))
+    .sort((a,b)=>(b.fv||0)-(a.fv||0)||(b.u||0)-(a.u||0));
   const tot=Math.max(1,Math.ceil(all.length/DPP));dpage=Math.max(0,Math.min(dpage,tot-1));
   const box=$("#dList");box.replaceChildren();
   all.slice(dpage*DPP,dpage*DPP+DPP).forEach(r=>{
     const it=document.createElement("div");it.className="it";
-    const meta=[r.c,AN[r.a]||"",r.u?new Date(r.u).toLocaleDateString("ko-KR"):""].filter(Boolean).join(" · ");
+    const meta=[r.c,AN[r.a]||"",r.mn?r.mn+"분":"",r.p?r.p+"명":"",r.lv?"난이도 "+r.lv:"",(r.d&&r.d.f&&r.d.f.length)?r.d.f.length+"단계":""].filter(Boolean).join(" · ");
     const row=document.createElement("div");row.className="row";
     row.append(h("button","불러오기",()=>loadRec(r)),
-      h("button","복제",()=>saveRec({...r,id:rid(),n:r.n+" 복사",u:Date.now()})),
-      h("button","삭제",()=>{if(confirm("'"+r.n+"' 훈련을 삭제할까요?"))delRec(r.id)}));
+      h("button",r.fv?"★":"☆",()=>{if(canEdit)saveRec({...r,fv:r.fv?0:1})}),
+      h("button","복제",()=>{if(canEdit)saveRec({...r,id:rid(),n:r.n+" 복사",u:Date.now()})}),
+      h("button","삭제",()=>{if(canEdit&&confirm("'"+r.n+"' 훈련을 삭제할까요?"))delRec(r.id)}));
     row.querySelectorAll("button").forEach(b=>b.className="chip");
-    it.append(h("div",r.n||"(이름 없음)"),h("div",meta),row);it.children[0].className="ttl";it.children[1].className="meta";
+    it.append(h("div",(r.fv?"★ ":"")+(r.n||"(이름 없음)")),h("div",meta),row);it.children[0].className="ttl";it.children[1].className="meta";
     box.append(it)});
-  if(!all.length){const e=h("p",q?"검색 결과가 없어요.":"아직 저장한 훈련이 없어요. 위에서 이름을 적고 [저장]을 눌러 보세요.");e.className="hint";box.append(e)}
+  if(!all.length){const e=h("p",q||dfilt?"조건에 맞는 훈련이 없어요.":"아직 저장한 훈련이 없어요. 위에서 이름을 적고 [저장]을 눌러 보세요.");e.className="hint";box.append(e)}
   const prev=h("button","◀",()=>{dpage--;rList()}),next=h("button","▶",()=>{dpage++;rList()});
   prev.className=next.className="chip";prev.disabled=dpage<=0;next.disabled=dpage>=tot-1;
-  $("#dPager").replaceChildren(prev,h("span",`${dpage+1} / ${tot} 쪽 · 총 ${all.length}개`),next)}
+  $("#dPager").replaceChildren(prev,h("span",`${dpage+1} / ${tot} 쪽 · 총 ${all.length}개`),next);
+  fillPick()}
 $("#dSearch").oninput=()=>{dpage=0;rList()};
+const USE_AUTH=false,COACHES=["coach@club.app"];   // 로그인 잠금을 쓰려면 USE_AUTH 를 true 로 바꾸고 COACHES 에 코치 이메일을 적으세요
+let auth=null;
+function setEditUI(){
+  document.querySelectorAll("[data-e]").forEach(b=>b.disabled=!canEdit);
+  ["#dTitle","#dCat","#dMemo","#dPpl","#dMin","#dLvl","#pDate","#pName"].forEach(i=>$(i).disabled=!canEdit);
+  if(!canEdit){tool="drag";document.querySelectorAll("[data-tool]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.tool=="drag"));select(null)}}
+function startData(){
+  dref=db.ref("drills");let first=true;
+  dref.on("value",sn=>{
+    const v=sn.val()||{};
+    if(first){first=false;if(canEdit)Object.keys(drills).forEach(id=>{if(!v[id]){v[id]=drills[id];dref.child(id).set(drills[id])}})}
+    drills=v;lsSet();rList();pillUpd();$("#dHint").textContent=""},
+    e=>{dref=null;pillUpd();$("#dHint").textContent="공유 저장소에 연결하지 못했어요 (Firebase 규칙 확인). 지금은 이 기기에만 저장됩니다."});
+  plref=db.ref("plans");let pf=true;
+  plref.on("value",sn=>{const v=sn.val()||{};
+    if(pf){pf=false;if(canEdit)Object.keys(plans).forEach(id=>{if(!v[id]){v[id]=plans[id];plref.child(id).set(plans[id])}})}
+    plans=v;lsP();rPlans()},()=>{plref=null});
+  try{if(localStorage.getItem("vt_live")!=="0")liveOn()}catch(e2){}
+  pillUpd()}
 function connect(){
   if(typeof firebase=="undefined")return;
-  try{
-    firebase.initializeApp(CFG);dref=firebase.database().ref("drills");let first=true;
-    dref.on("value",sn=>{
-      const v=sn.val()||{};
-      if(first){first=false;Object.keys(drills).forEach(id=>{if(!v[id]){v[id]=drills[id];dref.child(id).set(drills[id])}})}
-      drills=v;lsSet();rList();$("#cloud").textContent="☁ 팀 공유 저장소";$("#cloud").classList.remove("off");
-      $("#dHint").textContent=""},
-      e=>{dref=null;$("#cloud").textContent="이 기기에만 저장";$("#cloud").classList.add("off");
-        $("#dHint").textContent="공유 저장소에 연결하지 못했어요 (Firebase 규칙에 drills 추가 필요). 지금은 이 기기에만 저장됩니다."})
-  }catch(e){dref=null}}
+  try{firebase.initializeApp(CFG);db=firebase.database()}catch(e){return}
+  if(!USE_AUTH){startData();return}
+  auth=firebase.auth();$("#bLogout").hidden=false;
+  auth.onAuthStateChanged(u=>{
+    if(u){canEdit=COACHES.map(x=>x.toLowerCase()).includes((u.email||"").toLowerCase());$("#login").hidden=true;setEditUI();startData()}
+    else $("#login").hidden=false})}
+$("#bLogin").onclick=()=>{if(!auth)return;$("#lMsg").textContent="로그인 중…";
+  auth.signInWithEmailAndPassword($("#lEmail").value.trim(),$("#lPw").value).catch(e=>$("#lMsg").textContent="로그인 실패: "+e.message)};
+$("#bLocal").onclick=()=>{$("#login").hidden=true;canEdit=true;db=null;setEditUI();pillUpd()};
+$("#bLogout").onclick=()=>{if(auth)auth.signOut().then(()=>location.reload())};
 
 /* ---------- 이미지 저장 · 공유 ---------- */
 function wrap(x,t,w){const out=[];t.split("\n").forEach(p=>{let l="";for(const ch of p){if(x.measureText(l+ch).width>w){out.push(l);l=ch}else l+=ch}out.push(l)});return out}
@@ -499,7 +686,7 @@ async function exp(share){
   const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(s)],{type:"image/svg+xml"}));
   const img=new Image();img.src=url;await img.decode();
   const c=document.createElement("canvas"),x=c.getContext("2d");
-  x.font="34px sans-serif";const txt=$("#dMemo").value.trim(),nl=txt?wrap(x,txt,W-80):[];
+  x.font="34px sans-serif";const txt=[$("#dMemo").value.trim(),objs.length?"준비물: "+gearTxt():""].filter(Boolean).join("\n"),nl=txt?wrap(x,txt,W-80):[];
   c.width=W;c.height=top+Hh+(nl.length?nl.length*48+50:20);
   x.fillStyle="#0e1a2b";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,top);
   x.fillStyle="#eaf1fb";x.font="bold 44px sans-serif";
@@ -511,10 +698,261 @@ async function exp(share){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="volleyball-drill.png";a.click()}
 $("#bPng").onclick=()=>exp(false);$("#bShare").onclick=()=>exp(true);
 
+/* ---------- 실시간 연동 (훈련판 공유) ---------- */
+const cid=Math.random().toString(36).slice(2,9),ov=o=>JSON.stringify(oo(o));
+function pillUpd(){
+  const c=$("#cloud");
+  if(room){c.textContent=`● 실시간 ${nUsers}명`;c.classList.remove("off")}
+  else if(dref){c.textContent="☁ 저장소 연결";c.classList.remove("off")}
+  else{c.textContent="이 기기에만 저장";c.classList.add("off")}
+  $("#bLive").textContent=room?"실시간 연결 끄기":"실시간 연결 켜기";
+  $("#lvHint").textContent=room?"팀 공유 훈련판에 연결됨. 누가 움직여도 모두에게 실시간으로 보여요.":(db?"혼자 쓰는 중이에요. 바꾼 내용은 다른 사람에게 보이지 않습니다.":"인터넷 연결이 없어 혼자 쓰는 중이에요.")}
+function pub(){gearUpd();if(!rref||!synced||pubQ||playing)return;pubQ=setTimeout(()=>{pubQ=null;syncOut()},90)}
+["#dTitle","#dCat","#dMemo"].forEach(i=>$(i).addEventListener("input",pub));
+/* 내 화면에서 바뀐 것만 골라 올린다 (기구 하나, 선 하나 단위) */
+function syncOut(){
+  if(!rref||!synced)return;
+  const ids=new Set(objs.map(o=>o.id));
+  objs.forEach(o=>{const v=ov(o);if(known.o[o.id]!==v){known.o[o.id]=v;rref.child("o/"+o.id).set(JSON.parse(v))}});
+  Object.keys(known.o).forEach(id=>{if(!ids.has(id)){delete known.o[id];rref.child("o/"+id).remove()}});
+  const lid=new Set(lines.map(l=>l.id));
+  lines.forEach(l=>{if(!(l.id in known.l)){known.l[l.id]=1;rref.child("l/"+l.id).set({t:l.t,p:l.p,c:l.c||"",w:l.w||1,q:l.q?1:0,n:l.n||0})}});
+  Object.keys(known.l).forEach(id=>{if(!lid.has(id)){delete known.l[id];rref.child("l/"+id).remove()}});
+  [["t","#dTitle"],["c","#dCat"],["m","#dMemo"]].forEach(([k,q])=>{const v=$(q).value;if(v!==known[k]){known[k]=v;rref.child("meta/"+k).set(v)}});
+  const fs=JSON.stringify(frames);if(fs!==known.f){known.f=fs;rref.child("meta/f").set(fs)}}
+/* 남이 바꾼 것을 내 화면에 합친다 (내가 아직 안 올린 변경은 지킨다) */
+function applyRemote(d){
+  if(playing){pending=d;return}
+  d=d||{};const first=!synced;synced=true;
+  if(first&&!d.init){rref.child("init").set(true);pub();return}      // 새 방이면 내 화면을 올린다
+  const rob=d.o||{},keep=[];
+  objs.forEach(o=>{
+    const rv=rob[o.id];
+    if(rv){
+      const busy=drag&&drag.o===o,dirty=!first&&known.o[o.id]!==undefined&&ov(o)!==known.o[o.id];
+      if(!busy&&!dirty){Object.assign(o,{x:rv.x,y:rv.y,r:rv.r||0,s:rv.s||1,l:rv.l||"",k:rv.k||0});o.el.classList.toggle("lk",!!o.k);upd(o);known.o[o.id]=ov(o)}
+      else known.o[o.id]=JSON.stringify(oo({...rv,l:rv.l||"",r:rv.r||0,s:rv.s||1}));
+      keep.push(o)}
+    else if(!first&&!(o.id in known.o))keep.push(o);                  // 내가 방금 만든 것
+    else{o.el.remove();selSet.delete(o);delete known.o[o.id]}  // 남이 지운 것
+  });
+  Object.keys(rob).forEach(id=>{
+    if(objs.some(o=>o.id==id)||(!first&&id in known.o))return;
+    const v=rob[id],o={id,t:v.t,x:v.x,y:v.y,r:v.r||0,s:v.s||1,l:v.l||"",k:v.k||0};
+    keep.push(o);build(o);known.o[id]=ov(o)});
+  objs=keep;refreshSel();
+  const rl=d.l||{},added=first?[]:lines.filter(l=>!(l.id in known.l)),
+    removed=first?new Set():new Set(Object.keys(known.l).filter(id=>!lines.some(l=>l.id==id)));
+  lines=Object.keys(rl).filter(id=>!removed.has(id)).map(id=>({id,t:rl[id].t,p:rl[id].p,c:rl[id].c||"",w:rl[id].w||1,q:rl[id].q?1:0,n:rl[id].n||0})).concat(added);
+  known.l={};Object.keys(rl).forEach(id=>known.l[id]=1);
+  const meta=d.meta||{};
+  [["t","#dTitle"],["c","#dCat"],["m","#dMemo"]].forEach(([k,q])=>{
+    const rem=meta[k],el=$(q);if(rem===undefined||rem===known[k])return;
+    if(first||el.value===known[k])el.value=rem;known[k]=rem});
+  const mf=meta.f;if(mf!==undefined&&mf!==known.f){if(first||JSON.stringify(frames)===known.f){frames=JSON.parse(mf);cf=-1;rFrames()}known.f=mf}
+  rLines()}
+function liveOn(){
+  if(!db||room)return;
+  room=true;rref=db.ref("rooms/training");pref=db.ref("presence/training");
+  const me=pref.child(cid);me.set(1);me.onDisconnect().remove();
+  pref.on("value",sn=>{nUsers=sn.numChildren();pillUpd()});
+  rref.on("value",sn=>applyRemote(sn.val()),e=>{liveOff();$("#lvHint").textContent="연결 오류: "+e.message+" (Firebase 규칙에 rooms/training 추가 필요)"});
+  pillUpd()}
+function liveOff(){
+  if(!room)return;
+  rref.off();pref.off();pref.child(cid).remove();
+  rref=pref=null;room=false;synced=false;known={o:{},l:{}};nUsers=0;pillUpd()}
+const setLive=v=>{try{localStorage.setItem("vt_live",v?"1":"0")}catch(e){}};
+$("#bLive").onclick=()=>{
+  if(room){liveOff();setLive(0);return}
+  if(!db){alert("인터넷에 연결된 상태에서 다시 눌러 주세요.");return}
+  if(confirm("실시간 연결을 켜면 지금 화면이 팀 공유 훈련판으로 바뀝니다. 계속할까요?")){setLive(1);liveOn()}};
+
+/* ---------- 단계(여러 장면) 재생 ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function rFrames(){
+  $("#frameList").replaceChildren(...frames.map((f,i)=>{
+    const b=h("button","단계 "+(i+1),()=>{if(playing)return;cf=i;applyH(f);push();rFrames()});
+    b.className="chip";b.setAttribute("aria-pressed",i==cf);return b}));
+  pub()}
+$("#bFAdd").onclick=()=>{if(!canEdit)return;frames.push(snapH());cf=frames.length-1;rFrames()};
+$("#bFSave").onclick=()=>{if(canEdit&&cf>=0){frames[cf]=snapH();rFrames()}};
+$("#bFDel").onclick=()=>{if(canEdit&&cf>=0){frames.splice(cf,1);cf=Math.min(cf,frames.length-1);rFrames()}};
+const tween=(from,to,ms)=>new Promise(r=>{const t0=performance.now();
+  (function f(n){const t=Math.min((n-t0)/ms,1),e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    objs.forEach((o,i)=>{o.x=from[i][0]+(to[i][0]-from[i][0])*e;o.y=from[i][1]+(to[i][1]-from[i][1])*e;place(o)});
+    (t<1&&playing)?requestAnimationFrame(f):r()})(t0)});
+async function playFrames(){
+  if(playing){playing=false;return}
+  if(!frames.length){alert("먼저 [현재 장면을 단계로 추가]로 단계를 만들어 주세요.");return}
+  const backup=snapH();playing=true;select(null);$("#bPlay").textContent="■ 정지";
+  for(let i=0;i<frames.length&&playing;i++){
+    const d=JSON.parse(frames[i]);cf=i;rFrames();
+    const tm=new Map(d.o.map(o=>[o.id,o]));
+    objs=objs.filter(o=>{if(tm.has(o.id))return true;o.el.remove();return false});
+    d.o.forEach(t=>{if(!objs.some(o=>o.id==t.id)){const n={...t};objs.push(n);build(n)}});
+    lines=d.l.map(l=>({...l}));rLines();
+    const from=objs.map(o=>[o.x,o.y]),to=objs.map(o=>[tm.get(o.id).x,tm.get(o.id).y]);
+    objs.forEach(o=>{const t=tm.get(o.id);o.r=t.r;o.s=t.s;o.l=t.l;upd(o)});
+    await tween(from,to,i?1000:400);await sleep(700)}
+  playing=false;applyH(backup);$("#bPlay").textContent="▶ 재생";
+  if(pending){const d=pending;pending=null;applyRemote(d)}}
+$("#bPlay").onclick=playFrames;
+
+/* ---------- 준비물 집계 ---------- */
+function gearTxt(){
+  const c={};objs.forEach(o=>{if(!SH[o.t].p&&o.t!="text")c[o.t]=(c[o.t]||0)+1});
+  const pl=objs.filter(o=>SH[o.t].p).length;
+  return Object.keys(c).map(k=>NM[k]+" "+c[k]).concat(pl?["사람 "+pl]:[]).join(" · ")||"배치된 기구 없음"}
+function gearUpd(){const e=$("#gearList");if(e)e.textContent=gearTxt()}
+
+/* ---------- 구역 복사 ---------- */
+function copyArea(to){
+  if(!canEdit)return;
+  const f=rect(S.area),t=rect(to);
+  if(["full","all","stage"].includes(S.area)||f[2]!=t[2]||f[3]!=t[3]){alert("1/2 또는 1/4 구역을 보고 있을 때, 같은 크기의 구역으로만 복사할 수 있어요.");return}
+  const dx=t[0]-f[0],dy=t[1]-f[1],inR=(x,y)=>x>=f[0]&&x<f[0]+f[2]&&y>=f[1]&&y<f[1]+f[3];
+  const cp=objs.filter(o=>inR(o.x,o.y)).map(o=>{const n={...o,id:rid(),x:o.x+dx,y:o.y+dy,k:0};delete n.el;return n});
+  const lc=lines.filter(l=>inR(l.p[0][0],l.p[0][1])).map(l=>({...l,id:rid(),p:l.p.map(q=>[q[0]+dx,q[1]+dy])}));
+  if(!cp.length&&!lc.length){alert("복사할 기구나 화살표가 없어요.");return}
+  cp.forEach(n=>{objs.push(n);build(n)});lines=lines.concat(lc);rLines();push();setArea(to,true)}
+document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyArea(b.dataset.copy));
+
+/* ---------- 화살표 옵션 · 여러 개 선택 ---------- */
+document.querySelectorAll("[data-pc]").forEach(b=>b.onclick=()=>{PEN.c=b.dataset.pc;document.querySelectorAll("[data-pc]").forEach(x=>x.setAttribute("aria-pressed",x==b))});
+document.querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{PEN.w=+b.dataset.pw;document.querySelectorAll("[data-pw]").forEach(x=>x.setAttribute("aria-pressed",x==b))});
+tg("#bCurve",on=>PEN.curve=on);tg("#bNum",on=>PEN.num=on);
+tg("#bMulti",on=>{msMode=on;if(on)$("[data-tool=drag]").click();if(!on)$("#tip").textContent="선택한 기구를 끌면 함께 움직여요."});
+
+/* ---------- 타이머 ---------- */
+const T={on:false,phase:"work",set:1,left:0,end:0,iv:null};
+const tc=()=>({w:Math.max(5,+$("#tW").value||60),r:Math.max(0,+$("#tR").value||0),n:Math.max(1,+$("#tN").value||1)});
+const fmt=v=>{v=Math.ceil(v);return String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60).padStart(2,"0")};
+function toast(t){const e=$("#toast");e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3500)}
+function beep(n){
+  try{const a=new(window.AudioContext||window.webkitAudioContext)();
+    for(let i=0;i<n;i++){const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;
+      o.start(a.currentTime+i*.25);o.stop(a.currentTime+i*.25+.15)}}catch(e){}
+  if(navigator.vibrate)navigator.vibrate(n>1?[200,100,200]:200)}
+function tShow(){
+  const c=tc();$("#tBig").textContent=fmt(T.left||c.w);
+  $("#tInfo").textContent=(T.on||T.left)?`${T.phase=="work"?"운동":"휴식"} · 세트 ${T.set}/${c.n}`:"준비";
+  $("#tPill").hidden=!T.on;$("#tPill").textContent="⏱ "+fmt(T.left)+(T.phase=="rest"?" 휴식":"");
+  $("#bTStart").textContent=T.on?"일시정지":(T.left?"계속":"시작")}
+function tStop(done){clearInterval(T.iv);T.on=false;if(done){T.left=0;T.set=1;T.phase="work"}tShow()}
+function nextPhase(){
+  const c=tc();
+  if(T.phase=="work"&&c.r>0){T.phase="rest";T.left=c.r;toast("휴식!");beep(2)}
+  else if(T.set<c.n){T.set++;T.phase="work";T.left=c.w;toast($("#tMsg").value||"다음 세트!");beep(2)}
+  else{tStop(true);toast("모든 세트 끝! 🎉");beep(3);return}
+  T.end=Date.now()+T.left*1000}
+function tTick(){T.left=Math.max(0,(T.end-Date.now())/1000);if(T.left<=0)nextPhase();tShow()}
+$("#bTStart").onclick=()=>{
+  if(T.on){clearInterval(T.iv);T.on=false;T.left=Math.max(0,(T.end-Date.now())/1000);tShow();return}
+  const c=tc();if(!T.left){T.phase="work";T.set=1;T.left=c.w}
+  T.on=true;T.end=Date.now()+T.left*1000;T.iv=setInterval(tTick,250);beep(1);tShow()};
+$("#bTReset").onclick=()=>tStop(true);
+["#tW","#tR","#tN"].forEach(i=>$(i).addEventListener("input",()=>{if(!T.on&&!T.left)tShow()}));
+
+/* ---------- 훈련 계획표 ---------- */
+const PK="vt_plans_v1";let plans={},plref=null,plan={id:null,d:"",n:"",items:[]};
+try{plans=JSON.parse(localStorage.getItem(PK))||{}}catch(e){}
+const lsP=()=>{try{localStorage.setItem(PK,JSON.stringify(plans))}catch(e){}};
+function savePlan(rec){rec=JSON.parse(JSON.stringify(rec));plans[rec.id]=rec;lsP();if(plref)plref.child(rec.id).set(rec).catch(()=>{});rPlans()}
+function delPlan(id){delete plans[id];lsP();if(plref)plref.child(id).remove().catch(()=>{});rPlans()}
+function fillPick(){
+  const sl=$("#pPick");if(!sl)return;
+  sl.replaceChildren(new Option("훈련 선택…",""),...Object.values(drills).sort((a,b)=>(a.n||"").localeCompare(b.n||"")).map(r=>new Option((r.c?`[${r.c}] `:"")+r.n,r.id)))}
+function mvItem(i,d){const j=i+d;if(j<0||j>=plan.items.length)return;[plan.items[i],plan.items[j]]=[plan.items[j],plan.items[i]];rPlanEd()}
+function rPlanEd(){
+  const box=$("#pItems");box.replaceChildren();let tot=0;
+  plan.items.forEach((it,i)=>{
+    tot+=+it.min||0;const row=document.createElement("div");row.className="it";
+    const mi=document.createElement("input");mi.type="number";mi.value=it.min;mi.style.cssText="width:68px;margin:0";
+    mi.onchange=()=>{it.min=+mi.value||0;rPlanEd()};
+    const r2=document.createElement("div");r2.className="row";r2.style.margin="0";
+    const nm=h("span",(i+1)+". "+it.n);nm.style.flex="1";
+    const bs=[h("button","▲",()=>mvItem(i,-1)),h("button","▼",()=>mvItem(i,1)),
+      h("button","열기",()=>{const r=drills[it.did];if(r)loadRec(r);else alert("삭제된 훈련이에요.")}),
+      h("button","✕",()=>{plan.items.splice(i,1);rPlanEd()})];
+    bs.forEach(b=>b.className="chip");
+    r2.append(nm,mi,h("span","분"),...bs);row.append(r2);box.append(row)});
+  $("#pTotal").textContent=plan.items.length?`총 ${tot}분 (${Math.floor(tot/60)}시간 ${tot%60}분)`:"아래에서 훈련을 골라 [추가]를 눌러 보세요."}
+$("#bPAdd").onclick=()=>{if(!canEdit)return;const r=drills[$("#pPick").value];if(!r)return;plan.items.push({did:r.id,n:r.n,min:r.mn||15});rPlanEd()};
+$("#pDate").oninput=e=>plan.d=e.target.value;$("#pName").oninput=e=>plan.n=e.target.value;
+$("#bPSave").onclick=()=>{
+  if(!canEdit)return;
+  if(!plan.d&&!plan.n.trim()){alert("날짜나 계획 이름을 적어 주세요.");return}
+  if(!plan.items.length){alert("훈련을 한 개 이상 추가해 주세요.");return}
+  if(!plan.id)plan.id=rid();savePlan({...plan,u:Date.now()})};
+$("#bPNew").onclick=()=>{plan={id:null,d:"",n:"",items:[]};$("#pDate").value=$("#pName").value="";rPlanEd()};
+function planText(pl){
+  const tot=pl.items.reduce((a,b)=>a+(+b.min||0),0);
+  return [`📅 ${pl.d||""} ${pl.n||"훈련 계획"}`.trim(),...pl.items.map((it,i)=>{const r=drills[it.did]||{};
+    return `${i+1}) ${it.n} (${it.min}분)${r.c?" · "+r.c:""}${r.p?" · "+r.p+"명":""}${r.m?"\n   - "+r.m.split("\n")[0]:""}`}),`⏱ 총 ${tot}분`].join("\n")}
+$("#bPShare").onclick=async()=>{
+  if(!plan.items.length){alert("공유할 훈련이 없어요.");return}
+  const t=planText(plan);
+  if(navigator.share){try{await navigator.share({text:t});return}catch(e){}}
+  try{await navigator.clipboard.writeText(t);alert("계획표 글을 복사했어요. 카톡에 붙여넣으세요.")}catch(e){prompt("복사해서 사용하세요",t)}};
+function rPlans(){
+  const box=$("#pList");if(!box)return;box.replaceChildren();
+  const all=Object.values(plans).sort((a,b)=>(b.d||"").localeCompare(a.d||"")||(b.u||0)-(a.u||0));
+  all.forEach(pl=>{
+    const it=document.createElement("div");it.className="it";const tot=pl.items.reduce((a,b)=>a+(+b.min||0),0);
+    const row=document.createElement("div");row.className="row";
+    row.append(h("button","불러오기",()=>{plan=JSON.parse(JSON.stringify(pl));$("#pDate").value=plan.d||"";$("#pName").value=plan.n||"";rPlanEd()}),
+      h("button","삭제",()=>{if(canEdit&&confirm("계획표를 삭제할까요?"))delPlan(pl.id)}));
+    row.querySelectorAll("button").forEach(b=>b.className="chip");
+    it.append(h("div",(pl.d||"")+" "+(pl.n||"")),h("div",`훈련 ${pl.items.length}개 · 총 ${tot}분`),row);it.children[0].className="ttl";it.children[1].className="meta";box.append(it)});
+  if(!all.length){const e=h("p","저장한 계획표가 없어요.");e.className="hint";box.append(e)}}
+
+/* ---------- 조 편성 ---------- */
+let gMode="rand",groups=[];
+try{$("#gNames").value=localStorage.getItem("vt_names")||""}catch(e){}
+$("#gNames").addEventListener("input",()=>{try{localStorage.setItem("vt_names",$("#gNames").value)}catch(e){}});
+document.querySelectorAll("[data-gm]").forEach(b=>b.onclick=()=>{gMode=b.dataset.gm;document.querySelectorAll("[data-gm]").forEach(x=>x.setAttribute("aria-pressed",x==b))});
+const GA=n=>n<=2?["L","R"]:["Q1","Q2","Q3","Q4"];
+$("#bGroup").onclick=()=>{
+  const ppl=$("#gNames").value.split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(x=>{const m=x.match(/^(.+?)\s*[:：]\s*(\d+(?:\.\d+)?)$/);return m?{n:m[1].trim(),sc:+m[2]}:{n:x,sc:0}});
+  if(ppl.length<2){alert("이름을 두 명 이상 적어 주세요.");return}
+  const N=Math.max(2,Math.min(6,+$("#gN").value||2));groups=Array.from({length:N},()=>[]);
+  const list=ppl.slice();
+  if(gMode=="bal"&&ppl.some(p=>p.sc)){list.sort((a,b)=>b.sc-a.sc);list.forEach((p,i)=>{const r=Math.floor(i/N),c=i%N;groups[r%2?N-1-c:c].push(p)})}
+  else{for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}list.forEach((p,i)=>groups[i%N].push(p))}
+  const ar=GA(N),box=$("#gOut");box.replaceChildren();
+  groups.forEach((g,i)=>{const it=document.createElement("div");it.className="it";
+    const sum=g.reduce((a,b)=>a+b.sc,0);
+    it.append(h("div",`${i+1}조 · ${ar[i]?AN[ar[i]]:"구역 미지정"}${sum?` · 실력합 ${sum}`:""}`),h("div",g.map(p=>p.n).join(", ")));
+    it.children[0].className="ttl";it.children[1].className="meta";box.append(it)})};
+$("#bPlace").onclick=()=>{
+  if(!canEdit)return;if(!groups.length){alert("먼저 [조 편성]을 눌러 주세요.");return}
+  const ar=GA(groups.length);let n=0;
+  groups.forEach((g,i)=>{if(!ar[i])return;const rc=rect(ar[i]),cols=Math.ceil(Math.sqrt(g.length)),rows=Math.ceil(g.length/cols);
+    g.forEach((p,k)=>{const c=k%cols,rr=Math.floor(k/cols);
+      const o={id:rid(),t:i%2?"pr":"pb",x:rc[0]+(c+1)*rc[2]/(cols+1),y:rc[1]+(rr+1)*rc[3]/(rows+1),r:0,s:1,l:p.n.slice(0,6),k:0};
+      objs.push(o);build(o);n++})});
+  if(n){push();if(groups.length<=4)setArea(S.area=="full"||S.area=="all"?S.area:"full",true);$("#sheet").classList.remove("open")}}
+
+/* ---------- 백업 ---------- */
+$("#bBackup").onclick=()=>{
+  const blob=new Blob([JSON.stringify({v:1,drills,plans},null,1)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="volleyball-training-backup-"+new Date().toISOString().slice(0,10)+".json";a.click()};
+$("#bRestore").onclick=()=>$("#fRestore").click();
+$("#fRestore").onchange=async e=>{
+  const f=e.target.files[0];if(!f||!canEdit)return;
+  try{const d=JSON.parse(await f.text());let n=0,m=0;
+    Object.values(d.drills||{}).forEach(r=>{if(r&&r.id){saveRec(r);n++}});
+    Object.values(d.plans||{}).forEach(r=>{if(r&&r.id){savePlan(r);m++}});
+    alert(`훈련 ${n}개, 계획표 ${m}개를 복원했어요.`)}
+  catch(err){alert("백업 파일을 읽지 못했어요.")}
+  e.target.value=""};
+
 /* ---------- 시작 ---------- */
 $("#tip").textContent="기구·선수를 끌어 옮기세요. 두 번 탭하면 글자 변경.";
 stageUpd(false);setArea("full",false);setOrient(innerHeight>innerWidth*1.1);
-push();rList();tab("area");connect();
+push();rList();tab("area");connect();pillUpd();setEditUI();rFrames();rPlans();rPlanEd();tShow();gearUpd();
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js");
 </script>
 </body>
