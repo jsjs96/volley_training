@@ -10,7 +10,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
 :root{--bg:#0e1a2b;--panel:#162640;--p2:#1d3252;--line:#2a4268;--text:#eaf1fb;--muted:#8da3c3;--acc:#f5c542}
 *{box-sizing:border-box}[hidden]{display:none!important}
@@ -53,8 +52,6 @@ textarea{min-height:80px;resize:vertical}
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.5}
 .obj{cursor:grab}.obj.sel{filter:drop-shadow(0 0 2px #f5c542) drop-shadow(0 0 2px #f5c542)}
 .obj.lk{opacity:.9;cursor:default}
-.login{position:fixed;inset:0;background:rgba(5,10,20,.93);display:grid;place-items:center;z-index:20}
-.login .box{width:min(340px,90vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 .toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:var(--acc);color:#14213a;font-weight:900;font-size:22px;padding:14px 22px;border-radius:14px;z-index:15;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .tbig{font-size:64px;font-weight:900;text-align:center;line-height:1.1;margin-top:6px}.tinfo{text-align:center;color:var(--acc);font-weight:700;margin-bottom:8px}
 .col{flex:1;min-width:80px}
@@ -296,7 +293,7 @@ textarea{min-height:80px;resize:vertical}
       </section>
 
       <section data-pane="live">
-        <div class="row"><button class="chip go" id="bLive">실시간 연결 끄기</button><button class="chip" id="bLogout" hidden>로그아웃</button></div>
+        <div class="row"><button class="chip go" id="bLive">실시간 연결 끄기</button></div>
         <p class="hint" id="lvHint">연결 중이에요…</p>
         <p class="hint">연결하면 훈련판(기구·선수·화살표·훈련 이름과 설명)이 팀 전체에 실시간으로 공유돼요. 보는 구역과 확대는 사람마다 따로라서, 그룹마다 다른 1/4 구역을 보면서 같이 쓸 수 있습니다. 혼자 연습해 보고 싶을 땐 연결을 끄세요.</p>
         <p class="hint">불러오기·새 훈련·전부지우기는 <b>모두의 화면</b>에 적용됩니다.</p>
@@ -331,12 +328,6 @@ textarea{min-height:80px;resize:vertical}
   </div>
 </div>
 
-<div id="login" class="login" hidden><div class="box">
-  <h2 style="color:var(--text);font-size:16px">🏐 훈련판 로그인</h2>
-  <input id="lEmail" type="email" placeholder="이메일" autocomplete="username">
-  <input id="lPw" type="password" placeholder="비밀번호" autocomplete="current-password">
-  <div class="row"><button class="chip go" id="bLogin">로그인</button><button class="chip" id="bLocal">로그인 없이 (이 기기에서만)</button></div>
-  <p class="hint" id="lMsg"></p></div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
 const $=s=>document.querySelector(s),NS="http://www.w3.org/2000/svg";
@@ -654,8 +645,6 @@ function rList(){
   $("#dPager").replaceChildren(prev,h("span",`${dpage+1} / ${tot} 쪽 · 총 ${all.length}개`),next);
   fillPick()}
 $("#dSearch").oninput=()=>{dpage=0;rList()};
-const USE_AUTH=true,COACHES=["coach@club.app"];   // 실제 코치 로그인 이메일로 coach@club.app 을 교체하세요
-let auth=null;
 function setEditUI(){
   document.querySelectorAll("[data-e]").forEach(b=>b.disabled=!canEdit);
   ["#dTitle","#dCat","#dMemo","#dPpl","#dMin","#dLvl","#pDate","#pName"].forEach(i=>$(i).disabled=!canEdit);
@@ -685,15 +674,8 @@ function connect(){
     $("#dHint").textContent="Firebase 초기화 실패: "+e.message;
     return;
   }
-  if(!USE_AUTH){startData();return}
-  auth=firebase.auth();$("#bLogout").hidden=false;
-  auth.onAuthStateChanged(u=>{
-    if(u){canEdit=COACHES.map(x=>x.toLowerCase()).includes((u.email||"").toLowerCase());$("#login").hidden=true;setEditUI();startData()}
-    else $("#login").hidden=false})}
-$("#bLogin").onclick=()=>{if(!auth)return;$("#lMsg").textContent="로그인 중…";
-  auth.signInWithEmailAndPassword($("#lEmail").value.trim(),$("#lPw").value).catch(e=>$("#lMsg").textContent="로그인 실패: "+e.message)};
-$("#bLocal").onclick=()=>{$("#login").hidden=true;canEdit=true;db=null;setEditUI();pillUpd()};
-$("#bLogout").onclick=()=>{if(auth)auth.signOut().then(()=>location.reload())};
+  // 로그인 없이 바로 사용합니다. 클라우드 공유는 Realtime Database 규칙에 따라 연결됩니다.
+  canEdit=true;setEditUI();startData()}
 
 /* ---------- 이미지 저장 · 공유 ---------- */
 function wrap(x,t,w){const out=[];t.split("\n").forEach(p=>{let l="";for(const ch of p){if(x.measureText(l+ch).width>w){out.push(l);l=ch}else l+=ch}out.push(l)});return out}
